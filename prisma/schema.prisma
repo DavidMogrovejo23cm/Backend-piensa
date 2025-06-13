@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+model Jefe {
+  id         Int       @id @default(autoincrement())
+  nombre     String
+  correo     String
+  contrasena String
+}
+
+model Empleado {
+  id           Int               @id @default(autoincrement())
+  nombre       String
+  telefono     String
+  correo       String
+  salario_hora Float
+  activo       Boolean
+  jefe_id      Int
+
+}
+
+model QRToken {
+  id          Int      @id @default(autoincrement())
+  token       String   @unique
+  empleado_id Int
+  creado_en   DateTime
+  expira_en   DateTime
+  usado       Boolean
+
+}
+
+model RegistroAsistencia {
+  id                Int      @id @default(autoincrement())
+  empleado_id       Int
+  fecha             DateTime
+  hora_entrada      DateTime
+  hora_salida       DateTime
+  horas_trabajadas  Float
+  salario_calculado Float
+
+}
+
+model Reporte {
+  id               Int       @id @default(autoincrement())
+  jefe_id          Int
+  fecha_generacion DateTime
+  periodo_inicio   DateTime
+  periodo_fin      DateTime
+
+}
+
+model DetalleReporte {
+  id            Int      @id @default(autoincrement())
+  reporte_id    Int
+  empleado_id   Int
+  total_horas   Float
+  total_pagado  Float
+
+}
