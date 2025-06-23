@@ -1,33 +1,37 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-
 model Jefe {
-  id         Int       @id @default(autoincrement())
-  nombre     String
-  correo     String
-  contrasena String
-  jefeRol  AdminRol? @relation(fields: [JefeRolId], references: [id])
-  jefeRolId Int?
-  jefespeakers jefespeaker[]
+  id            Int          @id @default(autoincrement())
+  nombre        String
+  correo        String
+  contrasena    String
+  jefeRol       JefeRol?     @relation(fields: [jefeRolId], references: [id])
+  jefeRolId     Int?
+  jefespeakers  JefeSpeaker[]
+  reportes      Reporte[]
 }
 
 model Empleado {
-  id           Int               @id @default(autoincrement())
-  nombre       String
-  telefono     String
-  correo       String
-  salario_hora Float
-  activo       Boolean
-  jefe_id      Int
-  empleadoRol  EmpleadoRol? @relation(fields: [EmpleadoRolId], references: [id])
-  empleadoRolId Int?
-  empleadospeakers empleadosspeaker[]
+  id               Int                @id @default(autoincrement())
+  nombre           String
+  telefono         String
+  correo           String
+  salario_hora     Float
+  activo           Boolean
+  jefe_id          Int
+  empleadoRol      EmpleadoRol?      @relation(fields: [empleadoRolId], references: [id])
+  empleadoRolId    Int?
+  empleadospeakers EmpleadoSpeaker[]
+  qrTokens         QRToken[]
+  asistencias      RegistroAsistencia[]
+  detallesReporte  DetalleReporte[]
 }
 
 model QRToken {
@@ -38,6 +42,7 @@ model QRToken {
   expira_en   DateTime
   usado       Boolean
 
+  empleado    Empleado @relation(fields: [empleado_id], references: [id])
 }
 
 model RegistroAsistencia {
@@ -49,6 +54,7 @@ model RegistroAsistencia {
   horas_trabajadas  Float
   salario_calculado Float
 
+  empleado          Empleado @relation(fields: [empleado_id], references: [id])
 }
 
 model Reporte {
@@ -58,40 +64,54 @@ model Reporte {
   periodo_inicio   DateTime
   periodo_fin      DateTime
 
+  jefe             Jefe      @relation(fields: [jefe_id], references: [id])
+  detalles         DetalleReporte[]
 }
 
 model DetalleReporte {
-  id            Int      @id @default(autoincrement())
-  reporte_id    Int
-  empleado_id   Int
-  total_horas   Float
-  total_pagado  Float
+  id           Int      @id @default(autoincrement())
+  reporte_id   Int
+  empleado_id  Int
+  total_horas  Float
+  total_pagado Float
 
+  reporte      Reporte  @relation(fields: [reporte_id], references: [id])
+  empleado     Empleado @relation(fields: [empleado_id], references: [id])
 }
+
 model EmpleadoRol {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique   // <--- campo único para búsqueda por nombre
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
   description String
-  empleados       Empleado[]
-}
-model JefeRol {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique   // <--- campo único para búsqueda por nombre
-  description String
-  jefe       Jefe[]
+  empleados   Empleado[]
 }
 
-model EmpleadoSpeaker { 
-  id         Int      @id @default(autoincrement()) 
+model JefeRol {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String
+  jefes       Jefe[]
+}
+
+model EmpleadoSpeaker {
+  id         Int      @id @default(autoincrement())
   empleado   Empleado @relation(fields: [empleadoId], references: [id])
   empleadoId Int
   speaker    Speaker  @relation(fields: [speakerId], references: [id])
   speakerId  Int
 }
+
 model JefeSpeaker {
-  id       Int    @id @default(autoincrement())
-  jefe     Jefe   @relation(fields: [jefeId], references: [id])
-  jefeId   Int
-  speaker  Speaker @relation(fields: [speakerId], references: [id])
+  id        Int      @id @default(autoincrement())
+  jefe      Jefe     @relation(fields: [jefeId], references: [id])
+  jefeId    Int
+  speaker   Speaker  @relation(fields: [speakerId], references: [id])
   speakerId Int
+}
+
+model Speaker {
+  id                Int                @id @default(autoincrement())
+  nombre            String
+  empleadoSpeakers  EmpleadoSpeaker[]
+  jefeSpeakers      JefeSpeaker[]
 }
