@@ -60,13 +60,14 @@ export class AuthService {
     };
   }
 
-  async create(CreateJefeDto: CreateJefeDto) {
-    const hashedPassword = await bcrypt.hash(CreateJefeDto.contrasena, 10);
+  async create(dto: CreateJefeDto) {
+  const hashedPassword = await bcrypt.hash(dto.contrasena, 10);
 
-    return this.prisma.jefe.create({
-      data: {
-        ...CreateJefeDto,
-        contrasena: hashedPassword,
+  return this.prisma.jefe.create({
+    data: {
+      correo: dto.correo,
+      nombre: dto.nombre,
+      contrasena: hashedPassword,
       },
     });
   }
