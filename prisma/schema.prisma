@@ -12,6 +12,9 @@ model Jefe {
   nombre     String
   correo     String
   contrasena String
+  jefeRol  AdminRol? @relation(fields: [JefeRolId], references: [id])
+  jefeRolId Int?
+  jefespeakers jefespeaker[]
 }
 
 model Empleado {
@@ -22,7 +25,9 @@ model Empleado {
   salario_hora Float
   activo       Boolean
   jefe_id      Int
-
+  empleadoRol  EmpleadoRol? @relation(fields: [EmpleadoRolId], references: [id])
+  empleadoRolId Int?
+  empleadospeakers empleadosspeaker[]
 }
 
 model QRToken {
@@ -62,4 +67,31 @@ model DetalleReporte {
   total_horas   Float
   total_pagado  Float
 
+}
+model EmpleadoRol {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique   // <--- campo único para búsqueda por nombre
+  description String
+  empleados       Empleado[]
+}
+model JefeRol {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique   // <--- campo único para búsqueda por nombre
+  description String
+  jefe       Jefe[]
+}
+
+model EmpleadoSpeaker { 
+  id         Int      @id @default(autoincrement()) 
+  empleado   Empleado @relation(fields: [empleadoId], references: [id])
+  empleadoId Int
+  speaker    Speaker  @relation(fields: [speakerId], references: [id])
+  speakerId  Int
+}
+model JefeSpeaker {
+  id       Int    @id @default(autoincrement())
+  jefe     Jefe   @relation(fields: [jefeId], references: [id])
+  jefeId   Int
+  speaker  Speaker @relation(fields: [speakerId], references: [id])
+  speakerId Int
 }
