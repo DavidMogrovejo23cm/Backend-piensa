@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { QrtokenService } from './qrtoken.service';
 import { CreateQrtokenDto } from './dto/create-qrtoken.dto';
 import { UpdateQrtokenDto } from './dto/update-qrtoken.dto';
@@ -17,6 +17,16 @@ export class QrtokenController {
     return this.qrtokenService.findAll();
   }
 
+  @Get('validate')
+  validateToken(@Query('token') token: string) {
+    return this.qrtokenService.validateToken(token);
+  }
+
+  @Get('by-token/:token')
+  findByToken(@Param('token') token: string) {
+    return this.qrtokenService.findByToken(token);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.qrtokenService.findOne(+id);
@@ -25,6 +35,11 @@ export class QrtokenController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateQrtokenDto: UpdateQrtokenDto) {
     return this.qrtokenService.update(+id, updateQrtokenDto);
+  }
+
+  @Patch(':id/mark-used')
+  markAsUsed(@Param('id') id: string) {
+    return this.qrtokenService.markAsUsed(+id);
   }
 
   @Delete(':id')

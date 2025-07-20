@@ -31,7 +31,6 @@ model Empleado {
   empleadospeakers EmpleadoSpeaker[]
   qrTokens         QRToken[]
   asistencias      RegistroAsistencia[]
-  detallesReporte  DetalleReporte[]
 }
 
 model QRToken {
@@ -41,16 +40,17 @@ model QRToken {
   creado_en   DateTime
   expira_en   DateTime
   usado       Boolean
+  qrCode      String?  // Campo opcional para almacenar el QR en base64
 
   empleado    Empleado @relation(fields: [empleado_id], references: [id])
 }
 
 model RegistroAsistencia {
-  id                Int      @id @default(autoincrement())
+  id                Int       @id @default(autoincrement())
   empleado_id       Int
   fecha             DateTime
-  hora_entrada      DateTime
-  hora_salida       DateTime
+  hora_entrada      DateTime?
+  hora_salida       DateTime?
   horas_trabajadas  Float
   salario_calculado Float
 
@@ -69,14 +69,11 @@ model Reporte {
 }
 
 model DetalleReporte {
-  id           Int      @id @default(autoincrement())
-  reporte_id   Int
-  empleado_id  Int
-  total_horas  Float
-  total_pagado Float
-
-  reporte      Reporte  @relation(fields: [reporte_id], references: [id])
-  empleado     Empleado @relation(fields: [empleado_id], references: [id])
+  id         Int     @id @default(autoincrement())
+  reporte_id Int
+  empleado_id Int
+  
+  reporte    Reporte @relation(fields: [reporte_id], references: [id])
 }
 
 model EmpleadoRol {
