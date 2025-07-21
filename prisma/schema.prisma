@@ -57,24 +57,6 @@ model RegistroAsistencia {
   empleado          Empleado @relation(fields: [empleado_id], references: [id])
 }
 
-model Reporte {
-  id               Int       @id @default(autoincrement())
-  jefe_id          Int
-  fecha_generacion DateTime
-  periodo_inicio   DateTime
-  periodo_fin      DateTime
-
-  jefe             Jefe      @relation(fields: [jefe_id], references: [id])
-  detalles         DetalleReporte[]
-}
-
-model DetalleReporte {
-  id         Int     @id @default(autoincrement())
-  reporte_id Int
-  empleado_id Int
-  
-  reporte    Reporte @relation(fields: [reporte_id], references: [id])
-}
 
 model EmpleadoRol {
   id          Int       @id @default(autoincrement())

@@ -3,12 +3,10 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ValidationDto } from './dto/Validation.dto';
 import { LoginDto } from './dto/Login.dto';
-import * as bcrypt from "bcrypt"
+import * as bcrypt from 'bcrypt';
 import { CreateJefeDto } from 'src/jefe/dto/create-jefe.dto';
 import { CreateEmpleadoDto } from 'src/empleado/dto/create-empleado.dto';
 import { CreateRegistroAsistenciaDto } from 'src/registro-asistencia/dto/create-registro-asistencia.dto';
-import { CreateReporteDto } from 'src/reporte/dto/create-reporte.dto';
-import { CreateQrtokenDto } from 'src/qrtoken/dto/create-qrtoken.dto';
 import * as QRCode from 'qrcode';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -16,22 +14,17 @@ import { v4 as uuidv4 } from 'uuid';
 export class AuthService {
   constructor(private jwtService: JwtService, readonly prisma: PrismaService) {}
 
-  // Validación para jefes
   async validateUser(usernameOrEmail: string, contrasena: string): Promise<ValidationDto | undefined> {
     const user = await this.prisma.jefe.findFirst({
       where: {
-        OR: [
-          { nombre: usernameOrEmail },
-          { correo: usernameOrEmail },
-        ],
+        OR: [{ nombre: usernameOrEmail }, { correo: usernameOrEmail }],
       },
     });
 
-    if (!user) {
-      return undefined;
-    }
+    if (!user) return undefined;
 
-    if (await bcrypt.compare(contrasena, user.contrasena)) {
+    const validPassword = await bcrypt.compare(contrasena, user.contrasena);
+    if (validPassword) {
       const { contrasena, ...result } = user;
       return result;
     }
@@ -39,46 +32,27 @@ export class AuthService {
     return undefined;
   }
 
-  // Validación para empleados (sin contraseña)
   async validateEmpleado(usernameOrEmail: string): Promise<any | undefined> {
-    const empleado = await this.prisma.empleado.findFirst({
+    return this.prisma.empleado.findFirst({
       where: {
-        OR: [
-          { nombre: usernameOrEmail },
-          { correo: usernameOrEmail },
-        ],
-        activo: true, // Solo empleados activos
+        OR: [{ nombre: usernameOrEmail }, { correo: usernameOrEmail }],
+        activo: true,
       },
     });
-
-    return empleado || undefined;
   }
 
-  // Login para jefes
   async login(data: LoginDto) {
     const user = await this.prisma.jefe.findFirst({
       where: {
-        OR: [
-          { nombre: data.usernameOrEmail },
-          { correo: data.usernameOrEmail },
-        ],
+        OR: [{ nombre: data.usernameOrEmail }, { correo: data.usernameOrEmail }],
       },
     });
 
-    if (!user) {
+    if (!user || !(await bcrypt.compare(data.contrasena, user.contrasena))) {
       throw new UnauthorizedException('Credenciales invalidas.');
     }
 
-    const passwordValida = await bcrypt.compare(data.contrasena, user.contrasena);
-    if (!passwordValida) {
-      throw new UnauthorizedException('Credenciales invalidas.');
-    }
-
-    const payload = {
-      id: user.id,
-      nombre: user.nombre,
-      role: 'jefe',
-    };
+    const payload = { id: user.id, nombre: user.nombre, role: 'jefe' };
 
     return {
       access_token: this.jwtService.sign(payload),
@@ -91,27 +65,11 @@ export class AuthService {
     };
   }
 
-  // Login para empleados (sin contraseña, usando solo identificador)
   async loginEmpleado(usernameOrEmail: string) {
-    const empleado = await this.prisma.empleado.findFirst({
-      where: {
-        OR: [
-          { nombre: usernameOrEmail },
-          { correo: usernameOrEmail },
-        ],
-        activo: true,
-      },
-    });
+    const empleado = await this.validateEmpleado(usernameOrEmail);
+    if (!empleado) throw new UnauthorizedException('Empleado no encontrado o inactivo.');
 
-    if (!empleado) {
-      throw new UnauthorizedException('Empleado no encontrado o inactivo.');
-    }
-
-    const payload = {
-      id: empleado.id,
-      nombre: empleado.nombre,
-      role: 'empleado',
-    };
+    const payload = { id: empleado.id, nombre: empleado.nombre, role: 'empleado' };
 
     return {
       access_token: this.jwtService.sign(payload),
@@ -126,10 +84,8 @@ export class AuthService {
     };
   }
 
-  // Crear jefe
   async create(dto: CreateJefeDto) {
     const hashedPassword = await bcrypt.hash(dto.contrasena, 10);
-
     return this.prisma.jefe.create({
       data: {
         correo: dto.correo,
@@ -139,21 +95,14 @@ export class AuthService {
     });
   }
 
-  // Autenticar empleado por ID (método alternativo para sistemas internos)
   async autenticarEmpleadoPorId(empleado_id: number) {
     const empleado = await this.prisma.empleado.findUnique({
       where: { id: empleado_id, activo: true },
     });
 
-    if (!empleado) {
-      throw new UnauthorizedException('Empleado no encontrado o inactivo.');
-    }
+    if (!empleado) throw new UnauthorizedException('Empleado no encontrado o inactivo.');
 
-    const payload = {
-      id: empleado.id,
-      nombre: empleado.nombre,
-      role: 'empleado',
-    };
+    const payload = { id: empleado.id, nombre: empleado.nombre, role: 'empleado' };
 
     return {
       access_token: this.jwtService.sign(payload),
@@ -169,58 +118,35 @@ export class AuthService {
   }
 
   async createEmpleado(dto: CreateEmpleadoDto) {
-    // Convertir string a number si es necesario
     const jefe_id = typeof dto.jefe_id === 'string' ? parseInt(dto.jefe_id) : dto.jefe_id;
 
-    // Verificar que el jefe existe
-    const jefe = await this.prisma.jefe.findUnique({
-      where: { id: jefe_id },
-    });
+    const jefe = await this.prisma.jefe.findUnique({ where: { id: jefe_id } });
+    if (!jefe) throw new BadRequestException('El jefe especificado no existe.');
 
-    if (!jefe) {
-      throw new BadRequestException('El jefe especificado no existe.');
-    }
-
-    // Verificar que no exista otro empleado con el mismo correo
     const empleadoExistente = await this.prisma.empleado.findFirst({
       where: {
-        OR: [
-          { correo: dto.correo },
-          { nombre: dto.nombre },
-        ],
+        OR: [{ correo: dto.correo }, { nombre: dto.nombre }],
       },
     });
 
-    if (empleadoExistente) {
-      throw new BadRequestException('Ya existe un empleado con ese correo o nombre.');
-    }
+    if (empleadoExistente) throw new BadRequestException('Ya existe un empleado con ese correo o nombre.');
 
-    const empleado = await this.prisma.empleado.create({
+    return this.prisma.empleado.create({
       data: {
         nombre: dto.nombre,
         telefono: dto.telefono,
         correo: dto.correo,
         salario_hora: dto.salario_hora,
         activo: dto.activo,
-        jefe_id: jefe_id,
+        jefe_id,
       },
     });
-
-    return empleado;
   }
 
-  // Registrar asistencia
   async registrarAsistencia(dto: CreateRegistroAsistenciaDto) {
-    // Verificar que el empleado existe y está activo
-    const empleado = await this.prisma.empleado.findUnique({
-      where: { id: dto.empleado_id },
-    });
+    const empleado = await this.prisma.empleado.findUnique({ where: { id: dto.empleado_id } });
+    if (!empleado || !empleado.activo) throw new BadRequestException('Empleado no encontrado o inactivo.');
 
-    if (!empleado || !empleado.activo) {
-      throw new BadRequestException('Empleado no encontrado o inactivo.');
-    }
-
-    // Verificar si ya existe un registro para el empleado en la fecha especificada
     const fechaInicio = new Date(dto.fecha);
     fechaInicio.setHours(0, 0, 0, 0);
     const fechaFin = new Date(dto.fecha);
@@ -229,10 +155,7 @@ export class AuthService {
     const registroExistente = await this.prisma.registroAsistencia.findFirst({
       where: {
         empleado_id: dto.empleado_id,
-        fecha: {
-          gte: fechaInicio,
-          lte: fechaFin,
-        },
+        fecha: { gte: fechaInicio, lte: fechaFin },
       },
     });
 
@@ -245,50 +168,30 @@ export class AuthService {
 
     const salario_calculado = horas_trabajadas * empleado.salario_hora;
 
-    // Preparar los datos para la actualización
-    const updateData: any = {
+    const data: any = {
       horas_trabajadas,
       salario_calculado,
     };
 
-    // Solo incluir las horas si no son null/undefined
-    if (dto.hora_entrada !== null && dto.hora_entrada !== undefined) {
-      updateData.hora_entrada = dto.hora_entrada;
-    }
-    if (dto.hora_salida !== null && dto.hora_salida !== undefined) {
-      updateData.hora_salida = dto.hora_salida;
-    }
+    if (dto.hora_entrada != null) data.hora_entrada = dto.hora_entrada;
+    if (dto.hora_salida != null) data.hora_salida = dto.hora_salida;
 
     if (registroExistente) {
-      // Actualizar registro existente
       return this.prisma.registroAsistencia.update({
         where: { id: registroExistente.id },
-        data: updateData,
+        data,
       });
     } else {
-      // Crear nuevo registro
-      const createData: any = {
-        empleado_id: dto.empleado_id,
-        fecha: dto.fecha,
-        horas_trabajadas,
-        salario_calculado,
-      };
-
-      // Solo incluir las horas si no son null/undefined
-      if (dto.hora_entrada !== null && dto.hora_entrada !== undefined) {
-        createData.hora_entrada = dto.hora_entrada;
-      }
-      if (dto.hora_salida !== null && dto.hora_salida !== undefined) {
-        createData.hora_salida = dto.hora_salida;
-      }
-
       return this.prisma.registroAsistencia.create({
-        data: createData,
+        data: {
+          empleado_id: dto.empleado_id,
+          fecha: dto.fecha,
+          ...data,
+        },
       });
     }
   }
 
-  // Registrar entrada
   async registrarEntrada(empleado_id: number) {
     const ahora = new Date();
     const fechaHoy = new Date();
@@ -304,21 +207,14 @@ export class AuthService {
       },
     });
 
-    if (registroExistente && registroExistente.hora_entrada) {
+    if (registroExistente?.hora_entrada) {
       throw new BadRequestException('Ya se registró la entrada para hoy.');
     }
 
-    // Verificar que el empleado existe y está activo
-    const empleado = await this.prisma.empleado.findUnique({
-      where: { id: empleado_id },
-    });
-
-    if (!empleado || !empleado.activo) {
-      throw new BadRequestException('Empleado no encontrado o inactivo.');
-    }
+    const empleado = await this.prisma.empleado.findUnique({ where: { id: empleado_id } });
+    if (!empleado || !empleado.activo) throw new BadRequestException('Empleado no encontrado o inactivo.');
 
     if (registroExistente) {
-      // Actualizar registro existente con la entrada
       return this.prisma.registroAsistencia.update({
         where: { id: registroExistente.id },
         data: {
@@ -327,21 +223,19 @@ export class AuthService {
           salario_calculado: 0,
         },
       });
-    } else {
-      // Crear nuevo registro solo con entrada
-      return this.prisma.registroAsistencia.create({
-        data: {
-          empleado_id,
-          fecha: fechaHoy,
-          hora_entrada: ahora,
-          horas_trabajadas: 0,
-          salario_calculado: 0,
-        },
-      });
     }
+
+    return this.prisma.registroAsistencia.create({
+      data: {
+        empleado_id,
+        fecha: fechaHoy,
+        hora_entrada: ahora,
+        horas_trabajadas: 0,
+        salario_calculado: 0,
+      },
+    });
   }
 
-  // Registrar salida
   async registrarSalida(empleado_id: number) {
     const ahora = new Date();
     const fechaHoy = new Date();
@@ -357,7 +251,7 @@ export class AuthService {
       },
     });
 
-    if (!registroExistente || !registroExistente.hora_entrada) {
+    if (!registroExistente?.hora_entrada) {
       throw new BadRequestException('Debe registrar la entrada primero.');
     }
 
@@ -365,13 +259,8 @@ export class AuthService {
       throw new BadRequestException('Ya se registró la salida para hoy.');
     }
 
-    const empleado = await this.prisma.empleado.findUnique({
-      where: { id: empleado_id },
-    });
-
-    if (!empleado) {
-      throw new BadRequestException('Empleado no encontrado.');
-    }
+    const empleado = await this.prisma.empleado.findUnique({ where: { id: empleado_id } });
+    if (!empleado) throw new BadRequestException('Empleado no encontrado.');
 
     const horas_trabajadas = (ahora.getTime() - registroExistente.hora_entrada.getTime()) / (1000 * 60 * 60);
     const salario_calculado = horas_trabajadas * empleado.salario_hora;
@@ -386,75 +275,12 @@ export class AuthService {
     });
   }
 
-  // Generar reporte
-  async generarReporte(dto: CreateReporteDto) {
-    // Convertir string a number si es necesario
-    const jefe_id = typeof dto.jefe_id === 'string' ? parseInt(dto.jefe_id) : dto.jefe_id;
-
-    const jefe = await this.prisma.jefe.findUnique({
-      where: { id: jefe_id },
-    });
-
-    if (!jefe) {
-      throw new BadRequestException('Jefe no encontrado.');
-    }
-
-    // Obtener empleados del jefe
-    const empleados = await this.prisma.empleado.findMany({
-      where: { jefe_id: jefe_id },
-    });
-
-    // Obtener registros de asistencia en el período
-    const registros = await this.prisma.registroAsistencia.findMany({
-      where: {
-        empleado_id: { in: empleados.map(e => e.id) },
-        fecha: {
-          gte: dto.periodo_inicio,
-          lte: dto.periodo_fin,
-        },
-      },
-      include: {
-        empleado: true,
-      },
-    });
-
-    // Crear el reporte
-    const reporte = await this.prisma.reporte.create({
-      data: {
-        jefe_id: jefe_id,
-        fecha_generacion: dto.fecha_generacion,
-        periodo_inicio: dto.periodo_inicio,
-        periodo_fin: dto.periodo_fin,
-      },
-    });
-
-    // Calcular estadísticas
-    const estadisticas = {
-      total_empleados: empleados.length,
-      total_registros: registros.length,
-      total_horas_trabajadas: registros.reduce((sum, r) => sum + r.horas_trabajadas, 0),
-      total_salarios: registros.reduce((sum, r) => sum + r.salario_calculado, 0),
-      empleados_activos: empleados.filter(e => e.activo).length,
-    };
-
-    return {
-      reporte,
-      estadisticas,
-      registros,
-    };
-  }
-
-  // Generar token QR
   async generarQRToken(empleado_id: number) {
-    const empleado = await this.prisma.empleado.findUnique({
-      where: { id: empleado_id },
-    });
-
+    const empleado = await this.prisma.empleado.findUnique({ where: { id: empleado_id } });
     if (!empleado || !empleado.activo) {
       throw new BadRequestException('Empleado no encontrado o inactivo.');
     }
 
-    // Invalidar tokens anteriores no usados
     await this.prisma.qRToken.updateMany({
       where: {
         empleado_id,
@@ -466,9 +292,8 @@ export class AuthService {
 
     const token = uuidv4();
     const ahora = new Date();
-    const expira_en = new Date(ahora.getTime() + 5 * 60 * 1000); // 5 minutos
+    const expira_en = new Date(ahora.getTime() + 5 * 60 * 1000);
 
-    // Generar QR code
     const qrData = JSON.stringify({
       token,
       empleado_id,
@@ -477,7 +302,7 @@ export class AuthService {
 
     const qrCode = await QRCode.toDataURL(qrData);
 
-    const qrToken = await this.prisma.qRToken.create({
+    return this.prisma.qRToken.create({
       data: {
         token,
         empleado_id,
@@ -487,11 +312,8 @@ export class AuthService {
         qrCode,
       },
     });
-
-    return qrToken;
   }
 
-  // Validar y usar token QR
   async validarQRToken(token: string) {
     const qrToken = await this.prisma.qRToken.findFirst({
       where: {
@@ -504,11 +326,8 @@ export class AuthService {
       },
     });
 
-    if (!qrToken) {
-      throw new BadRequestException('Token QR inválido o expirado.');
-    }
+    if (!qrToken) throw new BadRequestException('Token QR inválido o expirado.');
 
-    // Marcar token como usado
     await this.prisma.qRToken.update({
       where: { id: qrToken.id },
       data: { usado: true },
@@ -517,29 +336,24 @@ export class AuthService {
     return qrToken;
   }
 
-  // Registrar asistencia con QR
   async registrarAsistenciaConQR(token: string, tipo: 'entrada' | 'salida') {
     const qrToken = await this.validarQRToken(token);
-    
-    if (tipo === 'entrada') {
-      return this.registrarEntrada(qrToken.empleado_id);
-    } else {
-      return this.registrarSalida(qrToken.empleado_id);
-    }
+    return tipo === 'entrada'
+      ? this.registrarEntrada(qrToken.empleado_id)
+      : this.registrarSalida(qrToken.empleado_id);
   }
 
-  // Obtener historial de asistencia
   async obtenerHistorialAsistencia(empleado_id: number, fecha_inicio?: Date, fecha_fin?: Date) {
-    const whereClause: any = { empleado_id };
-    
+    const where: any = { empleado_id };
+
     if (fecha_inicio || fecha_fin) {
-      whereClause.fecha = {};
-      if (fecha_inicio) whereClause.fecha.gte = fecha_inicio;
-      if (fecha_fin) whereClause.fecha.lte = fecha_fin;
+      where.fecha = {};
+      if (fecha_inicio) where.fecha.gte = fecha_inicio;
+      if (fecha_fin) where.fecha.lte = fecha_fin;
     }
 
     return this.prisma.registroAsistencia.findMany({
-      where: whereClause,
+      where,
       include: {
         empleado: {
           select: {
@@ -554,15 +368,14 @@ export class AuthService {
     });
   }
 
-  // Obtener empleados de un jefe
   async obtenerEmpleadosJefe(jefe_id: number) {
     return this.prisma.empleado.findMany({
       where: { jefe_id },
       include: {
-        asistencias: { // Cambiado de 'registroAsistencia' a 'asistencias'
+        asistencias: {
           where: {
             fecha: {
-              gte: new Date(new Date().setDate(new Date().getDate() - 30)), // Últimos 30 días
+              gte: new Date(new Date().setDate(new Date().getDate() - 30)),
             },
           },
           orderBy: { fecha: 'desc' },

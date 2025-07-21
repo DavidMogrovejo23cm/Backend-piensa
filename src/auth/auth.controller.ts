@@ -13,8 +13,6 @@ import { LoginDto } from './dto/Login.dto';
 import { CreateJefeDto } from 'src/jefe/dto/create-jefe.dto';
 import { CreateEmpleadoDto } from 'src/empleado/dto/create-empleado.dto';
 import { CreateRegistroAsistenciaDto } from 'src/registro-asistencia/dto/create-registro-asistencia.dto';
-import { CreateReporteDto } from 'src/reporte/dto/create-reporte.dto';
-
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -84,14 +82,6 @@ export class AuthController {
   async validarQR(@Body() body: { token: string }) {
     return this.authService.validarQRToken(body.token);
   }
-
-  // ==================== REPORTES ====================
-
-  @Post('generar-reporte')
-  async generarReporte(@Body() dto: CreateReporteDto) {
-    return this.authService.generarReporte(dto);
-  }
-
   // ==================== CONSULTAS ====================
 
   @Get('historial-asistencia/:empleado_id')
