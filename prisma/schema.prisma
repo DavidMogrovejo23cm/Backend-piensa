@@ -8,17 +8,18 @@ datasource db {
 }
 
 model Jefe {
-  id            Int          @id @default(autoincrement())
+  id            Int              @id @default(autoincrement())
   nombre        String
-  correo        String
+  correo        String            @unique
   contrasena    String
-  jefeRol       JefeRol?     @relation(fields: [jefeRolId], references: [id])
+  jefeRol       JefeRol?         @relation(fields: [jefeRolId], references: [id])
   jefeRolId     Int?
   jefespeakers  JefeSpeaker[]
+ refreshTokens RefreshToken[]
 }
 
 model Empleado {
-  id               Int                @id @default(autoincrement())
+  id               Int               @id @default(autoincrement())
   nombre           String
   telefono         String
   correo           String
@@ -30,7 +31,21 @@ model Empleado {
   empleadospeakers EmpleadoSpeaker[]
   qrTokens         QRToken[]
   asistencias      RegistroAsistencia[]
+refreshTokens RefreshToken[]
 }
+
+model RefreshToken {
+  id          Int       @id @default(autoincrement())
+  token       String    @unique
+  jefeId      Int?
+  empleadoId  Int?
+  jefe        Jefe?     @relation(fields: [jefeId], references: [id])
+  empleado    Empleado? @relation(fields: [empleadoId], references: [id])
+  expiresAt   DateTime
+  isRevoked   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+}
+
 
 model QRToken {
   id          Int      @id @default(autoincrement())

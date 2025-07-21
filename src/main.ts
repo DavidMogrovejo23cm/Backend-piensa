@@ -3,8 +3,10 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  
+  const app = await NestFactory.create(AppModule, {
+  logger: ['error', 'warn', 'debug', 'verbose', 'log'],
+});
+
   // CORS configurado para desarrollo
   app.enableCors({
     origin: ['http://localhost:4200', 'http://localhost:4000'], // Angular dev y SSR

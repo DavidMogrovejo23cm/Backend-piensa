@@ -1,18 +1,25 @@
-import { 
-  Controller, 
-  Post, 
-  Get, 
-  Body, 
-  Param, 
-  Query, 
-  HttpCode, 
-  HttpStatus 
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Param,
+  Query,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/Login.dto';
 import { CreateJefeDto } from 'src/jefe/dto/create-jefe.dto';
 import { CreateEmpleadoDto } from 'src/empleado/dto/create-empleado.dto';
 import { CreateRegistroAsistenciaDto } from 'src/registro-asistencia/dto/create-registro-asistencia.dto';
+
+// DTO específico para el frontend
+class LoginJefeDto {
+  usernameOrEmail: string;
+  contrasena: string;
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -21,8 +28,28 @@ export class AuthController {
 
   @Post('login-jefe')
   @HttpCode(HttpStatus.OK)
-  async loginJefe(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async loginJefe(@Body() body: LoginJefeDto) {
+    try {
+      console.log('Datos recibidos en login-jefe:', body);
+
+      const loginData: LoginDto = {
+        usernameOrEmail: body.usernameOrEmail,
+        contrasena: body.contrasena,
+      };
+
+      const result = await this.authService.login(loginData);
+
+      return {
+        success: true,
+        message: 'Login exitoso',
+        jefe: result.user,
+        token: result.access_token,
+        refresh_token: result.refresh_token,
+      };
+    } catch (error) {
+      console.error('Error en login-jefe:', error);
+      throw error;
+    }
   }
 
   @Post('login-empleado')
@@ -41,11 +68,13 @@ export class AuthController {
 
   @Post('crear-jefe')
   async crearJefe(@Body() createJefeDto: CreateJefeDto) {
+    console.log('Datos recibidos para crear jefe:', createJefeDto);
     return this.authService.create(createJefeDto);
   }
 
   @Post('crear-empleado')
   async crearEmpleado(@Body() createEmpleadoDto: CreateEmpleadoDto) {
+    console.log('Datos recibidos para crear empleado:', createEmpleadoDto);
     return this.authService.createEmpleado(createEmpleadoDto);
   }
 
@@ -82,6 +111,7 @@ export class AuthController {
   async validarQR(@Body() body: { token: string }) {
     return this.authService.validarQRToken(body.token);
   }
+
   // ==================== CONSULTAS ====================
 
   @Get('historial-asistencia/:empleado_id')
@@ -92,7 +122,7 @@ export class AuthController {
   ) {
     const fechaInicio = fecha_inicio ? new Date(fecha_inicio) : undefined;
     const fechaFin = fecha_fin ? new Date(fecha_fin) : undefined;
-    
+
     return this.authService.obtenerHistorialAsistencia(
       parseInt(empleado_id),
       fechaInicio,
