@@ -372,7 +372,7 @@ export class AuthService {
     return this.prisma.empleado.findMany({
       where: { jefe_id },
       include: {
-        asistencias: {
+        registroAsistencia: { // Ajusta aquí según el nombre real de la relación en tu schema.prisma
           where: {
             fecha: {
               gte: new Date(new Date().setDate(new Date().getDate() - 30)),
